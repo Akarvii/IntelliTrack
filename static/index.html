@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntelliTrack - Estación de Autogestión Logística</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <!-- Tesseract.js para Edge OCR en vivo de credenciales físicas -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+
+    <!-- Header General -->
+    <header class="app-header">
+        <div class="brand-wrapper">
+            <div class="brand-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    <circle cx="12" cy="16" r="1.5" fill="#DC2626"></circle>
+                </svg>
+            </div>
+            <div class="brand-text">
+                <h1>INTELLI<span>TRACK</span></h1>
+                <p>Estación de Auditoría & Trazabilidad Local</p>
+            </div>
+        </div>
+
+        <div class="header-right">
+            <div class="badge-status pulse">
+                <span>QUIOSCO EN LÍNEA (EDGE AI)</span>
+            </div>
+            <button id="btn-system-reset" class="btn-secondary" title="Reiniciar datos de prueba">
+                🔄 Reiniciar Mocks
+            </button>
+        </div>
+    </header>
+
+    <!-- ================= VISTA 1: INICIO Y VALIDACIÓN DE CÁMARA ================= -->
+    <main id="view-auth" class="view-container">
+        <div class="auth-grid">
+            
+            <!-- Gran Panel de Cámara con Selector de Modo -->
+            <div class="camera-large-panel">
+                
+                <!-- Switch de Modo de Análisis (Carnet vs Rostro) -->
+                <div class="auth-mode-switch-wrapper">
+                    <div class="auth-mode-switch">
+                        <button class="mode-btn active" id="btn-mode-carnet" data-mode="CARNET">
+                            💳 Análisis por Carnet (OCR & Contenido)
+                        </button>
+                        <button class="mode-btn mode-rostro-btn" id="btn-mode-rostro" data-mode="ROSTRO">
+                            👤 Análisis por Rostro (Puntos Biométricos)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Visor de Cámara y Retícula Adaptable -->
+                <div class="camera-large-wrapper">
+                    <video id="webcam-video" autoplay muted playsinline></video>
+                    <div class="scan-overlay-full">
+                        <div class="scan-reticle mode-carnet" id="camera-scan-reticle">
+                            <div class="laser-line"></div>
+                        </div>
+                        <div class="camera-status-pill" id="scan-status-text">
+                            Apunta tu carnet o credencial física dentro de la guía óptica
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de Control Lateral de Identificación -->
+            <div class="auth-controls-panel">
+                <div class="auth-header">
+                    <h2>Punto de Validación</h2>
+                    <p>Reconocimiento de alta fidelidad mediante puntos clave ORB, lectura OCR y biometría facial.</p>
+                </div>
+
+                <div class="action-card-group">
+                    <!-- Opción 1: Registrar o Configurar Usuario -->
+                    <div class="action-card">
+                        <div class="action-card-title">
+                            <span>📸</span>
+                            <h4>Registrar Nuevo Usuario / Carnet</h4>
+                        </div>
+                        <p>Captura tu <strong>carnet físico</strong> o tu <strong>rostro</strong> en vivo para indexar sus puntos y datos.</p>
+                        <button id="btn-open-register-modal" class="btn-secondary">
+                            ➕ Capturar y Registrar mi Perfil
+                        </button>
+                    </div>
+
+                    <!-- Opción 2: Checar y Confirmar Cámara -->
+                    <div class="action-card" style="border-color: rgba(220, 38, 38, 0.4);">
+                        <div class="action-card-title" style="color: var(--text-main);">
+                            <span id="scan-btn-icon">💳</span>
+                            <h4 id="scan-card-heading">Verificar Carnet en Cámara</h4>
+                        </div>
+                        <p id="scan-card-desc">Analiza el contenido, texto y vértices de la credencial física en cámara.</p>
+                        <button id="btn-scan-and-verify" class="btn-primary">
+                            ⚡ Checar y Confirmar Cámara
+                        </button>
+                    </div>
+
+                    <!-- Contenedor dinámico de confirmación / error de coincidencia -->
+                    <div id="verified-user-summary" style="display: none;">
+                        <!-- Se llena vía JS tras escanear -->
+                    </div>
+                </div>
+
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-align: center;">
+                    🔒 Procesamiento local 100% en el dispositivo (Edge AI). Criptografía SHA-256 inmutable.
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- ================= VISTA 2: MÓDULO DE PRÉSTAMOS, INVENTARIO Y LEDGER ================= -->
+    <main id="view-dashboard" class="view-container" style="display: none;">
+        
+        <!-- Barra Superior de Usuario Validado -->
+        <div class="dashboard-user-bar">
+            <div class="user-summary">
+                <div class="user-avatar-circle" id="dash-user-avatar">
+                    <span id="dash-user-avatar-initials">D</span>
+                </div>
+                <div class="user-info-text">
+                    <div style="display: flex; align-items: center;">
+                        <h3 id="dash-user-name">Daniel Alejandro Arévalo</h3>
+                        <span class="badge-method-pill CARNET" id="dash-user-method-badge">MÉTODO: CARNET</span>
+                    </div>
+                    <p id="dash-user-meta">Carnet: EST-2026 • Carrera: Ingeniería</p>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="dashboard-nav">
+                    <button class="btn-tab active" data-tab="catalogo">📦 Préstamos & Insumos</button>
+                    <button class="btn-tab" data-tab="ledger">🛡️ Libro Mayor (SHA-256)</button>
+                </div>
+                <button id="btn-logout" class="btn-secondary" style="border-color: var(--accent-crimson); color: #FCA5A5;">
+                    ⬅️ Salir al Menú
+                </button>
+            </div>
+        </div>
+
+        <!-- Módulo: Catálogo de Insumos -->
+        <div id="dash-section-catalogo">
+            <!-- Banner de Devolución Directa (se activa si el usuario ya tiene un activo) -->
+            <div id="direct-return-container"></div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <div>
+                    <h2 style="font-size: 1.4rem; font-weight: 800;">Catálogo de Elementos Disponibles</h2>
+                    <p style="color: var(--text-muted); font-size: 0.85rem;">Selecciona un implemento para retirar con registro inmutable.</p>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <label for="filter-dept" style="font-size: 0.85rem; color: var(--text-muted);">Filtrar por Área:</label>
+                    <select id="filter-dept" class="form-control" style="width: auto; padding: 6px 12px;">
+                        <option value="TODOS">Todas las áreas</option>
+                        <option value="Ingeniería / Mantenimiento">Ingeniería / Mantenimiento</option>
+                        <option value="Sistemas / TI">Sistemas / TI</option>
+                        <option value="Logística / Almacén">Logística / Almacén</option>
+                        <option value="Operaciones">Operaciones</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Grilla de Inventario -->
+            <div class="items-grid" id="inventory-grid">
+                <!-- Items inyectados vía JS -->
+            </div>
+        </div>
+
+        <!-- Módulo: Libro Mayor Criptográfico SHA-256 -->
+        <div id="dash-section-ledger" class="ledger-view" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 style="font-size: 1.4rem; font-weight: 800;">Libro Mayor Criptográfico (Hash Ledger)</h2>
+                    <p style="color: var(--text-muted); font-size: 0.85rem;">Historial inmutable encadenado con sellos SHA-256 de todas las transacciones.</p>
+                </div>
+                <button id="btn-verify-ledger" class="btn-primary" style="width: auto; padding: 10px 18px;">
+                    🛡️ Auditar Integridad Criptográfica
+                </button>
+            </div>
+
+            <!-- Resultado de Verificación de Integridad -->
+            <div id="integrity-result-card" class="integrity-card" style="display: none;"></div>
+
+            <!-- Tabla del Ledger -->
+            <div class="ledger-table-container">
+                <table class="ledger-table">
+                    <thead>
+                        <tr>
+                            <th>Bloque</th>
+                            <th>Evento</th>
+                            <th>Colaborador</th>
+                            <th>Elemento</th>
+                            <th>Detalles / Destino</th>
+                            <th>Hash Previo</th>
+                            <th>Hash Actual (SHA-256)</th>
+                            <th>Hora</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ledger-tbody">
+                        <!-- Bloques inyectados vía JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ================= MODAL: REGISTRAR / CAPTURAR USUARIO EN VIVO ================= -->
+    <div class="modal-backdrop" id="modal-register">
+        <div class="modal-box">
+            <h3 class="modal-title">📸 Registro con Cámara en Tiempo Real</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">
+                Observa la transmisión en vivo, encuadra tu carnet o rostro y captura tu credencial.
+            </p>
+
+            <form id="form-register" style="display: flex; flex-direction: column; gap: 14px;">
+                
+                <!-- 1. Método Exclusivo -->
+                <div class="form-group">
+                    <label>1. Selecciona Método Exclusivo de Autenticación:</label>
+                    <div class="method-radio-group">
+                        <label class="method-radio-card selected" id="card-opt-carnet">
+                            <input type="radio" name="auth_method" value="CARNET" checked>
+                            <strong style="color: #FFFFFF; font-size: 0.9rem;">💳 Por Carnet (OCR)</strong>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Captura y lectura de datos del carnet.</span>
+                        </label>
+
+                        <label class="method-radio-card" id="card-opt-rostro">
+                            <input type="radio" name="auth_method" value="ROSTRO">
+                            <strong style="color: #FFFFFF; font-size: 0.9rem;">👤 Por Rostro (Face Match)</strong>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Captura de vértices y biometría facial.</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 2. Cámara en Vivo dentro del Modal -->
+                <div class="modal-camera-container">
+                    <div class="modal-video-wrapper">
+                        <video id="modal-webcam-video" autoplay muted playsinline></video>
+                        
+                        <div class="modal-scan-overlay" id="modal-scan-overlay">
+                            <div class="scan-reticle mode-carnet" id="modal-scan-reticle">
+                                <div class="laser-line"></div>
+                            </div>
+                        </div>
+
+                        <img id="modal-snapshot-img" class="snapshot-result-preview" style="display: none;" alt="Foto capturada">
+                    </div>
+
+                    <div style="display: flex; gap: 8px; justify-content: space-between; align-items: center; padding: 4px 6px;">
+                        <span id="modal-cam-status" style="font-size: 0.8rem; color: var(--accent-lime); font-weight: 600;">
+                            ● Cámara en vivo activa
+                        </span>
+                        <div style="display: flex; gap: 6px;">
+                            <button type="button" id="btn-modal-capture" class="btn-primary" style="background: var(--accent-cyan); width: auto; padding: 7px 14px; font-size: 0.85rem;">
+                                📸 Tomar Foto
+                            </button>
+                            <button type="button" id="btn-modal-retake" class="btn-secondary" style="display: none; padding: 7px 14px; font-size: 0.85rem;">
+                                🔄 Repetir
+                            </button>
+                        </div>
+                    </div>
+                    <input type="hidden" id="input-avatar-url">
+                </div>
+
+                <!-- 3. Datos del Usuario -->
+                <div class="form-group">
+                    <label for="input-user-doc">Código / Número de Carnet:</label>
+                    <input type="text" id="input-user-doc" class="form-control" placeholder="Ej: 2026-EST-01" required>
+                </div>
+                <div class="form-group">
+                    <label for="input-user-name">Nombre Completo:</label>
+                    <input type="text" id="input-user-name" class="form-control" placeholder="Ej: Daniel Alejandro Arévalo Güechá" required>
+                </div>
+                <div class="form-group">
+                    <label for="input-user-dept">Carrera / Área / Departamento:</label>
+                    <select id="input-user-dept" class="form-control">
+                        <option value="Ingeniería / Mantenimiento">Ingeniería / Mantenimiento</option>
+                        <option value="Sistemas / TI">Sistemas / TI</option>
+                        <option value="Logística / Almacén">Logística / Almacén</option>
+                        <option value="Operaciones">Operaciones</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 6px;">
+                    <button type="button" class="btn-secondary" id="btn-close-register-modal" style="flex: 1;">Cancelar</button>
+                    <button type="submit" class="btn-primary" style="flex: 1;">Guardar y Registrar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= MODAL: REGISTRAR PRÉSTAMO ================= -->
+    <div class="modal-backdrop" id="modal-loan">
+        <div class="modal-box">
+            <h3 class="modal-title">⚡ Registrar Préstamo</h3>
+            <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; font-size: 0.9rem;">
+                <p style="color: var(--text-muted); font-size: 0.8rem;">Elemento a retirar:</p>
+                <strong id="loan-item-name-display" style="color: #FFFFFF; font-size: 1.05rem;">-</strong>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 8px;">Custodio responsable:</p>
+                <strong id="loan-user-name-display" style="color: var(--accent-lime);">-</strong>
+            </div>
+
+            <form id="form-loan" style="display: flex; flex-direction: column; gap: 14px;">
+                <input type="hidden" id="loan-item-id">
+                <div class="form-group">
+                    <label for="loan-destination-select">Servicio / Destino de Uso:</label>
+                    <select id="loan-destination-select" class="form-control" required>
+                        <option value="Laboratorio de Electrónica - Mesa 4">Laboratorio de Electrónica - Mesa 4</option>
+                        <option value="Mantenimiento Correctivo Planta 1">Mantenimiento Correctivo Planta 1</option>
+                        <option value="Taller de Prototipado y Robótica">Taller de Prototipado y Robótica</option>
+                        <option value="Pruebas de Campo / Diagnóstico">Pruebas de Campo / Diagnóstico</option>
+                        <option value="Bodega y Logística Central">Bodega y Logística Central</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 6px;">
+                    <button type="button" class="btn-secondary" id="btn-close-loan-modal" style="flex: 1;">Cancelar</button>
+                    <button type="submit" class="btn-primary" style="flex: 1;">Confirmar y Sellar (SHA-256)</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
