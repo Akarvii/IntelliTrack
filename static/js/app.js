@@ -4,6 +4,7 @@
 
 let currentUser = null;
 let currentActiveLoan = null;
+let currentUserLoans = [];
 let allItems = [];
 let allUsers = [];
 let webcamStream = null;
@@ -61,18 +62,7 @@ function setupEventListeners() {
     // 5. Tabs Dashboard
     document.querySelectorAll(".btn-tab").forEach(btn => {
         btn.addEventListener("click", () => {
-            document.querySelectorAll(".btn-tab").forEach(b => b.classList.remove("active"));
-            btn.classList.add("active");
-
-            const tab = btn.dataset.tab;
-            if (tab === "catalogo") {
-                document.getElementById("dash-section-catalogo").style.display = "block";
-                document.getElementById("dash-section-ledger").style.display = "none";
-            } else if (tab === "ledger") {
-                document.getElementById("dash-section-catalogo").style.display = "none";
-                document.getElementById("dash-section-ledger").style.display = "block";
-                loadLedgerHistory();
-            }
+            switchDashboardTab(btn.dataset.tab);
         });
     });
 
@@ -85,11 +75,28 @@ function setupEventListeners() {
     document.getElementById("btn-close-loan-modal").addEventListener("click", () => closeModal("modal-loan"));
     document.getElementById("form-loan").addEventListener("submit", handleLoanSubmit);
 
-    // 8. Auditoría Criptográfica
+    // 8. Pestaña y Modal de Devolución
+    const btnRefreshLoans = document.getElementById("btn-refresh-loans");
+    if (btnRefreshLoans) {
+        btnRefreshLoans.addEventListener("click", () => loadUserActiveLoans(true));
+    }
+    const btnCloseReturn = document.getElementById("btn-close-return-modal");
+    if (btnCloseReturn) {
+        btnCloseReturn.addEventListener("click", () => closeModal("modal-return"));
+    }
+    const formReturn = document.getElementById("form-return");
+    if (formReturn) {
+        formReturn.addEventListener("submit", handleReturnModalSubmit);
+    }
+
+    // 9. Auditoría Criptográfica
     document.getElementById("btn-verify-ledger").addEventListener("click", verifyLedgerIntegrity);
 
-    // 9. Reinicio
-    document.getElementById("btn-system-reset").addEventListener("click", resetSystem);
+    // 10. Reinicio
+    const btnReset = document.getElementById("btn-system-reset");
+    if (btnReset) {
+        btnReset.addEventListener("click", resetSystem);
+    }
 }
 
 // ================= GESTIÓN DE WEBCAM =================
@@ -448,9 +455,13 @@ function showDashboardView() {
     badge.className = `badge-method-pill ${currentUser.auth_method}`;
     badge.innerText = `MÉTODO: ${currentUser.auth_method}`;
 
-    // Cargar inventario
+    // Resetear a pestaña inicial (Catálogo)
+    switchDashboardTab("catalogo");
+
+    // Cargar inventario, préstamos y badge
     loadInventory();
     renderActiveLoanBanner();
+    loadUserActiveLoans(false);
 }
 
 // ================= GESTIÓN DE USUARIOS =================
@@ -621,6 +632,7 @@ async function handleLoanSubmit(e) {
 
         await loadInventory();
         renderActiveLoanBanner();
+        await loadUserActiveLoans(false);
     } catch (err) {
         alert(err.message);
     }
@@ -646,6 +658,7 @@ async function handleDirectReturn(loanId, itemId) {
             throw new Error(err.detail || "Error al registrar devolución");
         }
 
+        const data = await res.json();
         showNotification(`✅ Devolución completada. Bloque SHA-256 registrado.`);
         
         // Refrescar
@@ -659,6 +672,180 @@ async function handleDirectReturn(loanId, itemId) {
 
         await loadInventory();
         renderActiveLoanBanner();
+        await loadUserActiveLoans(true);
+    } catch (err) {
+        alert(err.message);
+    }
+}
+
+// ================= GESTIÓN DE PESTAÑA & MODAL DE DEVOLUCIONES =================
+
+function switchDashboardTab(tabName) {
+    document.querySelectorAll(".btn-tab").forEach(b => {
+        b.classList.toggle("active", b.dataset.tab === tabName);
+    });
+
+    const catSec = document.getElementById("dash-section-catalogo");
+    const devSec = document.getElementById("dash-section-devoluciones");
+    const ledSec = document.getElementById("dash-section-ledger");
+
+    if (catSec) catSec.style.display = (tabName === "catalogo") ? "block" : "none";
+    if (devSec) devSec.style.display = (tabName === "devoluciones") ? "block" : "none";
+    if (ledSec) ledSec.style.display = (tabName === "ledger") ? "block" : "none";
+
+    if (tabName === "catalogo") {
+        renderInventoryGrid(document.getElementById("filter-dept").value);
+    } else if (tabName === "devoluciones") {
+        loadUserActiveLoans(true);
+    } else if (tabName === "ledger") {
+        loadLedgerHistory();
+    }
+}
+
+async function loadUserActiveLoans(renderUI = true) {
+    if (!currentUser) return;
+
+    try {
+        const res = await fetch(`/api/loans/user/${currentUser.id}`);
+        if (!res.ok) throw new Error("Error al obtener préstamos activos del usuario");
+        
+        currentUserLoans = await res.json();
+
+        // Actualizar badge en la pestaña
+        const countBadge = document.getElementById("user-active-loans-count");
+        if (countBadge) {
+            if (currentUserLoans.length > 0) {
+                countBadge.innerText = currentUserLoans.length;
+                countBadge.style.display = "inline-flex";
+            } else {
+                countBadge.style.display = "none";
+            }
+        }
+
+        if (renderUI) {
+            renderUserActiveLoansGrid();
+        }
+    } catch (err) {
+        console.error("Error cargando préstamos del usuario:", err);
+    }
+}
+
+function renderUserActiveLoansGrid() {
+    const listContainer = document.getElementById("user-active-loans-list");
+    if (!listContainer) return;
+
+    listContainer.innerHTML = "";
+
+    if (!currentUserLoans || currentUserLoans.length === 0) {
+        listContainer.innerHTML = `
+            <div class="empty-loans-state">
+                <div class="icon">✨</div>
+                <h3>¡No tienes préstamos pendientes!</h3>
+                <p>Todos tus insumos solicitados han sido devueltos a almacén o no posees ningún registro activo en este momento.</p>
+                <button class="btn-primary" style="width: auto; margin-top: 10px;" onclick="switchDashboardTab('catalogo')">
+                    📦 Explorar Catálogo de Insumos
+                </button>
+            </div>
+        `;
+        return;
+    }
+
+    currentUserLoans.forEach(loan => {
+        const card = document.createElement("div");
+        card.className = "active-loan-card";
+        const borrowedDate = new Date(loan.borrowed_at);
+        const dateFormatted = borrowedDate.toLocaleDateString() + ' ' + borrowedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        card.innerHTML = `
+            <div>
+                <div class="active-loan-header">
+                    <div class="active-loan-icon">${loan.image_icon || '📦'}</div>
+                    <div class="active-loan-details">
+                        <span style="font-size: 0.72rem; font-weight: 700; color: var(--accent-amber); text-transform: uppercase;">Préstamo Activo #${loan.id}</span>
+                        <h4>${loan.item_name}</h4>
+                        <p>Código: <strong style="color: var(--text-main); font-family: monospace;">${loan.item_code}</strong> • ${loan.item_category || 'Insumo'}</p>
+                    </div>
+                </div>
+
+                <div class="active-loan-meta" style="margin-top: 14px;">
+                    <div><span>📍 Destino:</span> <strong>${loan.destination}</strong></div>
+                    <div><span>🕒 Fecha retiro:</span> <strong>${dateFormatted}</strong></div>
+                    <div><span>👤 Custodio:</span> <strong>${loan.user_name}</strong></div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-top: 14px;">
+                <button class="btn-secondary" style="flex: 1;" onclick="handleDirectReturn(${loan.id}, ${loan.item_id})">
+                    ⚡ Rápida
+                </button>
+                <button class="btn-success" style="flex: 2;" onclick="openReturnModalById(${loan.id})">
+                    📦 Registrar Devolución
+                </button>
+            </div>
+        `;
+        listContainer.appendChild(card);
+    });
+}
+
+function openReturnModalById(loanId) {
+    const loan = currentUserLoans.find(l => l.id === loanId);
+    if (!loan) return;
+
+    document.getElementById("return-loan-id").value = loan.id;
+    document.getElementById("return-item-id").value = loan.item_id;
+    document.getElementById("return-item-icon-display").innerText = loan.image_icon || '📦';
+    document.getElementById("return-item-name-display").innerText = loan.item_name;
+    document.getElementById("return-item-meta-display").innerText = `Código: ${loan.item_code} | Área: ${loan.item_department || currentUser.department}`;
+    document.getElementById("return-user-name-display").innerText = loan.user_name || currentUser.full_name;
+    document.getElementById("return-destination-display").innerText = loan.destination;
+    document.getElementById("return-condition-select").value = "Operativo / Excelente Estado";
+    document.getElementById("return-notes-input").value = "";
+
+    openModal("modal-return");
+}
+
+async function handleReturnModalSubmit(e) {
+    e.preventDefault();
+    const loanId = parseInt(document.getElementById("return-loan-id").value);
+    const itemId = parseInt(document.getElementById("return-item-id").value);
+    const physicalCondition = document.getElementById("return-condition-select").value;
+    const notes = document.getElementById("return-notes-input").value;
+
+    try {
+        const res = await fetch("/api/returns", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                loan_id: loanId,
+                item_id: itemId,
+                user_id: currentUser.id,
+                physical_condition: physicalCondition,
+                notes: notes
+            })
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || "Error al registrar la devolución");
+        }
+
+        const data = await res.json();
+        closeModal("modal-return");
+
+        showNotification(`✅ Devolución sellada en SHA-256: ${data.ledger_block.current_hash.substring(0, 14)}...`);
+
+        // Refrescar estado global
+        const scanRes = await fetch("/api/scan/identify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ auth_mode_requested: currentUser.auth_method })
+        });
+        const refreshed = await scanRes.json();
+        currentActiveLoan = refreshed.active_loan;
+
+        await loadInventory();
+        renderActiveLoanBanner();
+        await loadUserActiveLoans(true);
     } catch (err) {
         alert(err.message);
     }

@@ -944,6 +944,135 @@ header.app-header {
   border-color: var(--accent-crimson);
 }
 
+/* Badge de conteo en tabs */
+.badge-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-amber);
+  color: #000;
+  font-weight: 800;
+  font-size: 0.72rem;
+  padding: 1px 7px;
+  border-radius: 999px;
+  margin-left: 6px;
+}
+
+/* Grilla de Préstamos Activos */
+.active-loans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+.active-loan-card {
+  background: var(--bg-card);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1rem;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.active-loan-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-amber);
+}
+
+.active-loan-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-amber), var(--accent-lime));
+}
+
+.active-loan-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.active-loan-icon {
+  font-size: 2.2rem;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.active-loan-details h4 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #FFFFFF;
+}
+
+.active-loan-details p {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.active-loan-meta {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.active-loan-meta span {
+  color: var(--text-muted);
+}
+
+.active-loan-meta strong {
+  color: #FFFFFF;
+}
+
+/* Estado Vacío de Devoluciones */
+.empty-loans-state {
+  grid-column: 1 / -1;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: 3rem 1.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.empty-loans-state .icon {
+  font-size: 3rem;
+  filter: drop-shadow(0 0 12px rgba(132, 204, 22, 0.3));
+}
+
+.empty-loans-state h3 {
+  font-size: 1.25rem;
+  color: #FFFFFF;
+}
+
+.empty-loans-state p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  max-width: 460px;
+}
+
 @media (max-width: 960px) {
   .auth-grid {
     grid-template-columns: 1fr;

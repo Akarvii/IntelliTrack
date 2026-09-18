@@ -136,6 +136,9 @@
             <div style="display: flex; align-items: center; gap: 12px;">
                 <div class="dashboard-nav">
                     <button class="btn-tab active" data-tab="catalogo">📦 Préstamos & Insumos</button>
+                    <button class="btn-tab" data-tab="devoluciones" id="tab-btn-devoluciones">
+                        🔄 Devoluciones <span class="badge-tab-count" id="user-active-loans-count" style="display: none;">0</span>
+                    </button>
                     <button class="btn-tab" data-tab="ledger">🛡️ Libro Mayor (SHA-256)</button>
                 </div>
                 <button id="btn-logout" class="btn-secondary" style="border-color: var(--accent-crimson); color: #FCA5A5;">
@@ -144,7 +147,7 @@
             </div>
         </div>
 
-        <!-- Módulo: Catálogo de Insumos -->
+        <!-- Módulo 1: Catálogo de Insumos -->
         <div id="dash-section-catalogo">
             <!-- Banner de Devolución Directa (se activa si el usuario ya tiene un activo) -->
             <div id="direct-return-container"></div>
@@ -172,7 +175,24 @@
             </div>
         </div>
 
-        <!-- Módulo: Libro Mayor Criptográfico SHA-256 -->
+        <!-- Módulo 2: Mis Préstamos & Devoluciones -->
+        <div id="dash-section-devoluciones" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <div>
+                    <h2 style="font-size: 1.4rem; font-weight: 800;">🔄 Insumos Pendientes de Devolución</h2>
+                    <p style="color: var(--text-muted); font-size: 0.85rem;">Inspecciona los elementos que tienes actualmente en préstamo y registra su entrega física con sello SHA-256.</p>
+                </div>
+                <button class="btn-secondary" id="btn-refresh-loans" style="width: auto; padding: 8px 14px;">
+                    🔄 Actualizar
+                </button>
+            </div>
+
+            <div id="user-active-loans-list" class="active-loans-grid">
+                <!-- Renderizado dinámico de préstamos activos -->
+            </div>
+        </div>
+
+        <!-- Módulo 3: Libro Mayor Criptográfico SHA-256 -->
         <div id="dash-section-ledger" class="ledger-view" style="display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
@@ -322,6 +342,64 @@
                 <div style="display: flex; gap: 10px; margin-top: 6px;">
                     <button type="button" class="btn-secondary" id="btn-close-loan-modal" style="flex: 1;">Cancelar</button>
                     <button type="submit" class="btn-primary" style="flex: 1;">Confirmar y Sellar (SHA-256)</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= MODAL: REGISTRAR DEVOLUCIÓN ================= -->
+    <div class="modal-backdrop" id="modal-return">
+        <div class="modal-box">
+            <h3 class="modal-title">📦 Registrar Devolución de Insumo</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">
+                Verifica la condición física del elemento para cerrar el préstamo y sellar la transacción criptográfica.
+            </p>
+
+            <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-subtle); padding: 14px; border-radius: 8px; font-size: 0.9rem; margin-top: 10px;">
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <div id="return-item-icon-display" style="font-size: 2.2rem;">📦</div>
+                    <div>
+                        <strong id="return-item-name-display" style="color: #FFFFFF; font-size: 1.1rem; display: block;">-</strong>
+                        <span id="return-item-meta-display" style="color: var(--text-muted); font-size: 0.8rem;">Código: -</span>
+                    </div>
+                </div>
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.8rem;">
+                    <div>
+                        <span style="color: var(--text-muted);">Custodio:</span><br>
+                        <strong id="return-user-name-display" style="color: var(--accent-lime);">-</strong>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted);">Destino registrado:</span><br>
+                        <strong id="return-destination-display" style="color: #FCD34D;">-</strong>
+                    </div>
+                </div>
+            </div>
+
+            <form id="form-return" style="display: flex; flex-direction: column; gap: 14px; margin-top: 12px;">
+                <input type="hidden" id="return-loan-id">
+                <input type="hidden" id="return-item-id">
+                
+                <div class="form-group">
+                    <label for="return-condition-select">Estado / Condición Física al Devolver:</label>
+                    <select id="return-condition-select" class="form-control" required>
+                        <option value="Operativo / Excelente Estado" selected>✅ Operativo / Excelente Estado (Como nuevo)</option>
+                        <option value="Operativo / Desgaste Normal">🟡 Operativo / Desgaste Normal de Uso</option>
+                        <option value="Requiere Limpieza o Calibración">🧹 Requiere Limpieza o Calibración Preventiva</option>
+                        <option value="Con Observaciones Menores">⚠️ Con Observaciones Menores (Detalle estético)</option>
+                        <option value="Dañado / Requiere Mantenimiento">🚨 Dañado / Requiere Mantenimiento Correctivo</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="return-notes-input">Observaciones o Notas de Entrega (Opcional):</label>
+                    <textarea id="return-notes-input" class="form-control" rows="2" placeholder="Ej: Se entrega con todos los accesorios completos e intactos..."></textarea>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 6px;">
+                    <button type="button" class="btn-secondary" id="btn-close-return-modal" style="flex: 1;">Cancelar</button>
+                    <button type="submit" class="btn-success" style="flex: 1.2;">
+                        🔒 Confirmar y Sellar en SHA-256
+                    </button>
                 </div>
             </form>
         </div>

@@ -207,6 +207,40 @@ def register_loan(req: LoanRequest):
         "ledger_block": ledger_entry
     }
 
+@app.get("/api/loans/active")
+def get_active_loans():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT l.*, i.name as item_name, i.code as item_code, i.category as item_category, 
+               i.image_icon, u.full_name as user_name, u.document_id as user_document, u.department as user_department
+        FROM loans l
+        JOIN items i ON l.item_id = i.id
+        JOIN users u ON l.user_id = u.id
+        WHERE l.status = 'ACTIVO'
+        ORDER BY l.borrowed_at DESC
+    """)
+    loans = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return loans
+
+@app.get("/api/loans/user/{user_id}")
+def get_user_active_loans(user_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT l.*, i.name as item_name, i.code as item_code, i.category as item_category, 
+               i.image_icon, i.department as item_department, u.full_name as user_name, u.document_id as user_document
+        FROM loans l
+        JOIN items i ON l.item_id = i.id
+        JOIN users u ON l.user_id = u.id
+        WHERE l.user_id = ? AND l.status = 'ACTIVO'
+        ORDER BY l.borrowed_at DESC
+    """, (user_id,))
+    loans = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return loans
+
 @app.post("/api/returns")
 def register_return(req: ReturnRequest):
     conn = get_connection()
@@ -223,13 +257,15 @@ def register_return(req: ReturnRequest):
     cursor.execute("SELECT * FROM items WHERE id = ?", (req.item_id,))
     item = cursor.fetchone()
     
+    condition_str = req.physical_condition or "Buen Estado / Operativo"
+    
     cursor.execute("""
         UPDATE loans 
         SET status = 'DEVUELTO', 
             returned_at = CURRENT_TIMESTAMP,
             physical_condition_on_return = ?
         WHERE id = ?
-    """, (req.physical_condition, req.loan_id))
+    """, (condition_str, req.loan_id))
     
     current_stock = item["stock"] if item and "stock" in item.keys() else 0
     new_stock = current_stock + 1
@@ -247,7 +283,9 @@ def register_return(req: ReturnRequest):
     conn.commit()
     conn.close()
     
-    details_str = f"Devolución recibida. Condición: {req.physical_condition}. Stock reingresado (Total: {new_stock}). Préstamo #{req.loan_id} cerrado."
+    notes_str = f" | Observaciones: {req.notes.strip()}" if req.notes and req.notes.strip() else ""
+    details_str = f"Devolución recibida. Condición: [{condition_str}]{notes_str}. Stock reingresado (+1, total: {new_stock}). Préstamo #{req.loan_id} liquidado."
+    
     ledger_entry = append_ledger_entry(
         event_type="DEVOLUCION",
         user_name=user["full_name"] if user else "Colaborador",
@@ -259,7 +297,7 @@ def register_return(req: ReturnRequest):
     
     return {
         "status": "SUCCESS",
-        "message": f"Devolución de '{item['name']}' completada exitosamente (Stock disponible: {new_stock}).",
+        "message": f"Devolución de '{item['name'] if item else 'Elemento'}' completada exitosamente (Stock disponible: {new_stock}).",
         "ledger_block": ledger_entry
     }
 
